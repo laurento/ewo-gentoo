@@ -1,0 +1,21 @@
+=== Release 0.3.1
+  * this release is supposed to be used with portage-2.2
+  		- it uses --keep-going
+  		- it uses @world and @system
+  		- you can set --jobs and --load-average with EMERGE_DEFAULT_OPTS in your make.conf
+
+=== Release 0.3 -- 2008-07-22
+  * new feature: mode cleaner, using this mode EWO cleans distdir removing 
+    files related with the already re-compiled packages
+
+=== Release 0.2.1 -- 2008-06-26
+  * moving from GPL-2 to GPL-3 (I trust in FSF ;))
+  * bugfix: a trailing whitespace in the package list that annoys latest emerge version has been removed
+
+=== Release 0.2
+  * better starting point date handling ({-s, -P, -v} options)
+  * now ewo uses ~/.ewo for its configuration files
+  * the starting date and the packages to skip list aren't manually specified in the script anymore
+
+=== Release 0.1
+  * initial release
