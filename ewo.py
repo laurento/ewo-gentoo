@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Emerge (-e) World Optimizer (EWO)
-# EWO 0.2.1 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
+# EWO 0.3 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
 
 import re, commands, os, sys
 from portage import pkgsplit
@@ -26,7 +26,7 @@ conf_dir = os.path.expanduser('~/.ewo/')
 conf_fromdate = conf_dir + '.ewo_from_date'
 conf_toskip = conf_dir + 'package.skip'
 
-ewo_version = "0.2.1"
+ewo_version = "0.3"
 from_date = ''
 world = []
 alreadydone = []
@@ -93,6 +93,18 @@ def fill_alreadydone():
 	else:
 		raise EwoError('Oops! No already-done packages list...')
 
+def human_readable(bytes):
+	if bytes >= 1024:
+		if bytes >= 1024 * 1024:
+			if bytes >= 1024 * 1024 * 1024:
+				return "%.2fGB" % (bytes / 1024.0 / 1024.0 / 1024.0)
+			else:
+				return "%.2fMB" % (bytes / 1024.0 / 1024.0)
+		else:
+			return "%.2fKB" % (bytes / 1024.0)
+	else:
+		return "%dB" % bytes
+
 #
 # Whoami
 #
@@ -127,10 +139,11 @@ parser.add_option("-v", "--showstart", action="store_true", dest="show_fromdate"
                   help="show the already set starting point")
 parser.add_option("-f", "--fetchonly", action="store_true", dest="fetch_only",
                   help="use the --fetchonly option in the emerge command")
-parser.add_option("-m", "--mode", action="store", dest="mode", choices=['exec','pretend','emerge-pretend'],
+parser.add_option("-m", "--mode", action="store", dest="mode", choices=['exec','pretend','emerge-pretend','cleaner'],
                   help="using mode 'exec' an 'emerge -1 [...]' will start automatically; " +
                        "using 'pretend' ewo simply shows the todo packages list on the stdout " +
-                       "and using 'emerge-pretend' (Default) the output of 'emerge -1vp [...] | less' will be shown")
+                       "and using 'emerge-pretend' (Default) the output of 'emerge -1vp [...] | less' will be shown." +
+                       "The 'cleaner' mode removes files related with the already-done ebuilds.")
 parser.set_defaults(mode="emerge-pretend")
 
 (options, args) = parser.parse_args()
@@ -200,6 +213,7 @@ try:
 			print "\n\nAll fetched. Hey, what are you waiting for? Start to compile! :D"
 		else:
 			print "\n\nMumble Mumble... no error occurred, enjoy your fresh compiled gentoo system ;)"
+
 	elif options.mode == "emerge-pretend":
 		cmd = ["emerge", "--color=y", "-1vp", "--nospinner"]
 		cmd.extend(out.split(" "))
@@ -212,6 +226,32 @@ try:
 			print "\n\nOne or more errors occurred, please make your checks and restart EWO"
 		else:
 			print "\n\nIf all seems ok, start EWO with '--mode=exec' to automatically start a convenient emerge"
+
+	elif options.mode == "cleaner":
+	    # In this mode EWO simply removes useless files in distfiles directory 
+	    # and leaves only those related with the ebuild we still need to build
+	    useful_files = set()
+	    freed_space = 0
+	    distdir = commands.getstatusoutput('portageq distdir')[1]
+	    raw_emerge_pattern = re.compile('((file|http|ftp|https)://\S+)\s.*$')
+	    
+	    raw_pkglist = commands.getstatusoutput('emerge -fp --quiet --nospinner ' + out)	    
+	    if raw_pkglist[0] == 0:
+	    	pkglist = raw_pkglist[1].split('\n')
+	    	for pkg in pkglist:
+	    		match = raw_emerge_pattern.match(pkg)
+	    		if match:
+	    			useful_files.add(os.path.basename(match.group(1)))
+	
+	    for root, dirs, files in os.walk(distdir):
+	    	for name in files:
+	    		if name not in useful_files:
+	    			freed_space += os.path.getsize(os.path.join(root, name))
+	    			os.remove(os.path.join(root, name))
+
+	    print "\n\n*** Freed Space: %s" % human_readable(freed_space)
+	    print "Now we only have the files we need to complete our mission ;)"
+	   	
 	else:
 		print "\nHere is the todo package list:\n(start EWO with '--mode=exec' to automatically start a convenient emerge)\n"
 		print out
