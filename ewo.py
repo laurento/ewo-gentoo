@@ -1,21 +1,20 @@
 #! /usr/bin/env python
 #
-#    This program is free software; you can redistribute it and/or modify
-#    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation; either version 2 of the License, or
-#    (at your option) any later version.
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 #
-#    This program is distributed in the hope that it will be useful,
-#    but WITHOUT ANY WARRANTY; without even the implied warranty of
-#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#    GNU General Public License for more details.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
 #
-#    You should have received a copy of the GNU General Public License
-#    along with this program; if not, write to the Free Software
-#    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Emerge (-e) World Optimizer (EWO)
-# EWO 0.2 Copyright 2007 Frittella Laurento <mrfree@infinito.it>
+# EWO 0.2.1 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
 
 import re, commands, os, sys
 from portage import pkgsplit
@@ -27,7 +26,7 @@ conf_dir = os.path.expanduser('~/.ewo/')
 conf_fromdate = conf_dir + '.ewo_from_date'
 conf_toskip = conf_dir + 'package.skip'
 
-ewo_version = "0.2"
+ewo_version = "0.2.1"
 from_date = ''
 world = []
 alreadydone = []
@@ -185,6 +184,8 @@ try:
 	for pkg in todo:
 		if toskip.count(pkgsplit(pkg)[0]) == 0:
 			out += '=' + pkg + ' '
+	# We need to remove the last whitespace (emerge doesn't like it)
+	out = out.rstrip()
 	
 	if options.mode == "exec":
 		print "\nStarting the Global-Thermonuclear 'emerge -1 [...]'...\n"
