@@ -14,11 +14,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Emerge (-e) World Optimizer (EWO)
-# EWO 0.3 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
+# EWO 0.3.1 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
 
 import re, commands, os, sys
 from portage import pkgsplit
-from portage_dep import isvalidatom, dep_getcpv
+from portage.dep import isvalidatom, dep_getcpv
 from time import gmtime, strftime
 from subprocess import call, Popen, PIPE
 
@@ -26,7 +26,7 @@ conf_dir = os.path.expanduser('~/.ewo/')
 conf_fromdate = conf_dir + '.ewo_from_date'
 conf_toskip = conf_dir + 'package.skip'
 
-ewo_version = "0.3"
+ewo_version = "0.3.1"
 from_date = ''
 world = []
 alreadydone = []
@@ -65,7 +65,7 @@ def fill_world_ng():
 	global world
 	raw_emerge_pattern = re.compile('\[.+\]\s+([^\s]+).*')
 
-	raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner world')
+	raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
 	if raw_pkglist[0] == 0:
 		pkglist = raw_pkglist[1].split('\n')	
 
@@ -202,7 +202,7 @@ try:
 	
 	if options.mode == "exec":
 		print "\nStarting the Global-Thermonuclear 'emerge -1 [...]'...\n"
-		cmd = ["emerge", "-1"]
+		cmd = ["emerge", "-1", "--keep-going"]
 		if options.fetch_only:
 			cmd.append("--fetchonly")
 		cmd.extend(out.split(" "))
