@@ -14,9 +14,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Emerge (-e) World Optimizer (EWO)
-# EWO 0.3.1 Copyright (C) 2007, 2008 Laurento Frittella <laurento.frittella@gmail.com>
+# EWO 0.3.2 Copyright (C) 2007-2010 Laurento Frittella <laurento.frittella@gmail.com>
 
 import re, commands, os, sys
+import portage
+from portage.versions import vercmp
 from portage import pkgsplit
 from portage.dep import isvalidatom, dep_getcpv
 from time import gmtime, strftime
@@ -65,7 +67,13 @@ def fill_world_ng():
 	global world
 	raw_emerge_pattern = re.compile('\[.+\]\s+([^\s]+).*')
 
-	raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
+	if vercmp(portage.VERSION, "2.2") < 0:
+		# Portage < 2.2
+		raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner world system')
+	else:
+		# Portage >= 2.2
+		raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
+		
 	if raw_pkglist[0] == 0:
 		pkglist = raw_pkglist[1].split('\n')	
 
