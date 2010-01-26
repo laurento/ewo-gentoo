@@ -14,10 +14,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # Emerge (-e) World Optimizer (EWO)
-# EWO 0.3.2 Copyright (C) 2007-2010 Laurento Frittella <laurento.frittella@gmail.com>
+# EWO 0.4 Copyright (C) 2007-2010 Laurento Frittella <laurento.frittella@gmail.com>
 
 import re, commands, os, sys
 import portage
+import pickle
 from portage.versions import vercmp
 from portage import pkgsplit
 from portage.dep import isvalidatom, dep_getcpv
@@ -27,8 +28,9 @@ from subprocess import call, Popen, PIPE
 conf_dir = os.path.expanduser('~/.ewo/')
 conf_fromdate = conf_dir + '.ewo_from_date'
 conf_toskip = conf_dir + 'package.skip'
+conf_smartworld = conf_dir + '.smartworld'
 
-ewo_version = "0.3.1"
+ewo_version = "0.4"
 from_date = ''
 world = []
 alreadydone = []
@@ -61,28 +63,70 @@ def read_config_files():
 	else:
 		raise EwoError("The starting point has not been set!\nPlease specify it using -s option first")
 
-def fill_world_ng():
-	print "Checking ALL installed packages..."
-	
-	global world
-	raw_emerge_pattern = re.compile('\[.+\]\s+([^\s]+).*')
+def get_latest_sync_date():
+	raw_genlop_pattern = re.compile('\s+rsync\'ed at >>> ([^\s]+.*)')
 
-	if vercmp(portage.VERSION, "2.2") < 0:
-		# Portage < 2.2
-		raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner world system')
+	raw_genlop = commands.getstatusoutput('genlop -rn | tail -n3')
+	if raw_genlop[0] == 0:
+		# index -1 means last list element
+		raw_latest_sync = raw_genlop[1].split('\n')[-1]
+		return raw_genlop_pattern.match(raw_latest_sync).group(1)
 	else:
-		# Portage >= 2.2
-		raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
+		raise EwoError('Oops! Error getting latest portage-sync date...')
 		
-	if raw_pkglist[0] == 0:
-		pkglist = raw_pkglist[1].split('\n')	
-
-		for pkg in pkglist:
-			match = raw_emerge_pattern.match(pkg)
-			if match:
-				world.append(match.group(1))
+def read_smartworld():
+	global world
+	
+	latestsync_date = get_latest_sync_date()
+	smartworld_filename = '.smartworld_S%s_R%s' % (from_date.replace(' ','').replace(':',''),
+												   latestsync_date.replace(' ','').replace(':',''))
+	if os.path.isfile(conf_dir + smartworld_filename):
+		fd = open(conf_dir + smartworld_filename, 'r')
+		world = pickle.load(fd)
+		fd.close()
+		print "   ('smartworld' cache successfully read)"
+		return True
 	else:
-		raise EwoError('Oops! No world packages list...')
+		print "   (no useful 'smartworld' cache found)"
+		return False
+	
+def write_smartworld():
+	# clean old and useless smartworld files (if any)
+	commands.getstatusoutput('rm -f %s/.smartworld*' % conf_dir)
+	
+	latestsync_date = get_latest_sync_date()
+	smartworld_filename = '.smartworld_S%s_R%s' % (from_date.replace(' ','').replace(':',''),
+												   latestsync_date.replace(' ','').replace(':',''))
+	fd = open(conf_dir + smartworld_filename, 'w')
+	pickle.dump(world, fd)
+	fd.close()
+
+def fill_world_ng():
+	global world
+	
+	print "Checking ALL installed packages..."	
+	if not read_smartworld():
+		# SmartWorld file doesn't exist or not valid, let's calculate world and create one
+		raw_emerge_pattern = re.compile('\[ebuild.+\]\s+([^\s]+).*')
+	
+		if vercmp(portage.VERSION, "2.2") < 0:
+			# Portage < 2.2
+			raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner world system')
+		else:
+			# Portage >= 2.2
+			raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
+			
+		if raw_pkglist[0] == 0:
+			pkglist = raw_pkglist[1].split('\n')	
+	
+			for pkg in pkglist:
+				match = raw_emerge_pattern.match(pkg)
+				if match:
+					world.append(match.group(1))
+		else:
+			raise EwoError('Oops! No world packages list...')
+		
+		write_smartworld()
 
 def fill_alreadydone():
 	print "Checking Already-Done (re-compiled) packages..."
@@ -193,21 +237,22 @@ try:
 	for pkg in world:
 		if alreadydone.count(pkg) == 0 and toskip.count(pkg) == 0:
 			todo.append(pkg)
-	
-	print "\n'-e world' packages   : %d" % len(world)
-	print "Already done packages : %d" % len(alreadydone)
-	print "TODO packages         : %d" % len(todo)
-	if len(toskip) > 0:
-		print "Skipped packages      : %d" % len(toskip)
-		for pck in toskip:
-			print '   %s' % pck
-	
+
 	for pkg in todo:
 		if toskip.count(pkgsplit(pkg)[0]) == 0:
 			out += '=' + pkg + ' '
 	# We need to remove the last whitespace (emerge doesn't like it)
 	out = out.rstrip()
 	
+	print "\n'-e world' packages   : %d" % len(world)
+	print "Already done packages : %d" % len(alreadydone)
+	print "TODO packages         : %d" % len(out.split())
+	if len(toskip) > 0:
+		print "TOSKIP packages       : %d" % len(toskip)
+		for pck in toskip:
+			print '   %s' % pck
+
+
 	if options.mode == "exec":
 		print "\nStarting the Global-Thermonuclear 'emerge -1 [...]'...\n"
 		cmd = ["emerge", "-1", "--keep-going"]
