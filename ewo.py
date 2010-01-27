@@ -191,6 +191,9 @@ parser.add_option("-v", "--showstart", action="store_true", dest="show_fromdate"
                   help="show the already set starting point")
 parser.add_option("-f", "--fetchonly", action="store_true", dest="fetch_only",
                   help="use the --fetchonly option in the emerge command")
+parser.add_option("-i", "--enable-interactive", action="store_true", dest="enable_interactive",
+                  help="by default ewo skips interactive ebuilds to fully support multiple jobs, " +
+                       "this option is normally used *after* a complete ewo 'exec-mode' run.")
 parser.add_option("-m", "--mode", action="store", dest="mode", choices=['exec','pretend','emerge-pretend','cleaner'],
                   help="using mode 'exec' an 'emerge -1 [...]' will start automatically; " +
                        "using 'pretend' ewo simply shows the todo packages list on the stdout " +
@@ -258,6 +261,8 @@ try:
 		cmd = ["emerge", "-1", "--keep-going"]
 		if options.fetch_only:
 			cmd.append("--fetchonly")
+		if not options.enable_interactive:
+			cmd.append("--accept-properties=-interactive")
 		cmd.extend(out.split(" "))
 		retcode = call(cmd)
 		if retcode > 0:
