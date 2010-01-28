@@ -75,40 +75,50 @@ def get_latest_sync_date():
 		raise EwoError('Oops! Error getting latest portage-sync date...')
 		
 def read_smartworld():
-	global world
+	global world, options
 	
 	latestsync_date = get_latest_sync_date()
-	smartworld_filename = '.smartworld_S%s_R%s' % (from_date.replace(' ','').replace(':',''),
-												   latestsync_date.replace(' ','').replace(':',''))
-	if os.path.isfile(conf_dir + smartworld_filename):
+	smartworld_filename = '.smartworld_S%s_R%s_P%s' % (from_date.replace(' ','').replace(':',''),
+												   latestsync_date.replace(' ','').replace(':',''),
+												   options.problematic_only)
+	if os.path.isfile(conf_dir + smartworld_filename) and (not options.ignore_smartworld):
 		fd = open(conf_dir + smartworld_filename, 'r')
 		world = pickle.load(fd)
 		fd.close()
-		print "   ('smartworld' cache successfully read)"
+		print "   ('smartworld' cache has been successfully read)"
 		return True
+	elif options.ignore_smartworld:
+		print "   ('smartworld' cache has been ignored)"
+		return False
 	else:
-		print "   (no useful 'smartworld' cache found)"
+		print "   (no useful 'smartworld' cache has been found)"
 		return False
 	
 def write_smartworld():
+	global options
+	
 	# clean old and useless smartworld files (if any)
 	commands.getstatusoutput('rm -f %s/.smartworld*' % conf_dir)
 	
 	latestsync_date = get_latest_sync_date()
-	smartworld_filename = '.smartworld_S%s_R%s' % (from_date.replace(' ','').replace(':',''),
-												   latestsync_date.replace(' ','').replace(':',''))
+	smartworld_filename = '.smartworld_S%s_R%s_P%s' % (from_date.replace(' ','').replace(':',''),
+												   latestsync_date.replace(' ','').replace(':',''),
+												   options.problematic_only)
 	fd = open(conf_dir + smartworld_filename, 'w')
 	pickle.dump(world, fd)
 	fd.close()
 
 def fill_world_ng():
-	global world
+	global world, options
 	
 	print "Checking ALL installed packages..."	
 	if not read_smartworld():
 		# SmartWorld file doesn't exist or not valid, let's calculate world and create one
-		raw_emerge_pattern = re.compile('\[ebuild.+\]\s+([^\s]+).*')
-	
+		if options.problematic_only:
+			raw_emerge_pattern = re.compile('(?:\[ebuild.I.....\]|\[ebuild....F..\])\s+([^\s]+).*')
+		else:
+			raw_emerge_pattern = re.compile('\[ebuild.+\]\s+([^\s]+).*')
+		
 		if vercmp(portage.VERSION, "2.2") < 0:
 			# Portage < 2.2
 			raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner world system')
@@ -117,7 +127,7 @@ def fill_world_ng():
 			raw_pkglist = commands.getstatusoutput('emerge -ep --quiet --nospinner @world @system')
 			
 		if raw_pkglist[0] == 0:
-			pkglist = raw_pkglist[1].split('\n')	
+			pkglist = raw_pkglist[1].split('\n')
 	
 			for pkg in pkglist:
 				match = raw_emerge_pattern.match(pkg)
@@ -191,9 +201,12 @@ parser.add_option("-v", "--showstart", action="store_true", dest="show_fromdate"
                   help="show the already set starting point")
 parser.add_option("-f", "--fetchonly", action="store_true", dest="fetch_only",
                   help="use the --fetchonly option in the emerge command")
-parser.add_option("-i", "--enable-interactive", action="store_true", dest="enable_interactive",
-                  help="by default ewo skips interactive ebuilds to fully support multiple jobs, " +
-                       "this option is normally used *after* a complete ewo 'exec-mode' run.")
+parser.add_option("-i", "--ignore-smartworld", action="store_true", dest="ignore_smartworld",
+                  help="sometimes could be useful to ignore smartworld cache (e.g. when some 'fetch restricted' files are removed since last ewo run) ")
+parser.add_option("-o", "--problematic-only", action="store_true", dest="problematic_only",
+                  help="this option should be used *before* running ewo in 'exec-mode' to avoid problems " +
+                       "related with interactive and fetch restricted ebuilds and to fully support " +
+                       "multiple emerge jobs (interactive force --jobs=1)")
 parser.add_option("-m", "--mode", action="store", dest="mode", choices=['exec','pretend','emerge-pretend','cleaner'],
                   help="using mode 'exec' an 'emerge -1 [...]' will start automatically; " +
                        "using 'pretend' ewo simply shows the todo packages list on the stdout " +
@@ -261,8 +274,6 @@ try:
 		cmd = ["emerge", "-1", "--keep-going"]
 		if options.fetch_only:
 			cmd.append("--fetchonly")
-		if not options.enable_interactive:
-			cmd.append("--accept-properties=-interactive")
 		cmd.extend(out.split(" "))
 		retcode = call(cmd)
 		if retcode > 0:
