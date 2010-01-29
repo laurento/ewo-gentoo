@@ -79,8 +79,8 @@ def read_smartworld():
 	
 	latestsync_date = get_latest_sync_date()
 	smartworld_filename = '.smartworld_S%s_R%s_P%s' % (from_date.replace(' ','').replace(':',''),
-												   latestsync_date.replace(' ','').replace(':',''),
-												   options.problematic_only)
+							   latestsync_date.replace(' ','').replace(':',''),
+							   options.problematic_only)
 	if os.path.isfile(conf_dir + smartworld_filename) and (not options.ignore_smartworld):
 		fd = open(conf_dir + smartworld_filename, 'r')
 		world = pickle.load(fd)
@@ -102,8 +102,8 @@ def write_smartworld():
 	
 	latestsync_date = get_latest_sync_date()
 	smartworld_filename = '.smartworld_S%s_R%s_P%s' % (from_date.replace(' ','').replace(':',''),
-												   latestsync_date.replace(' ','').replace(':',''),
-												   options.problematic_only)
+							   latestsync_date.replace(' ','').replace(':',''),
+							   options.problematic_only)
 	fd = open(conf_dir + smartworld_filename, 'w')
 	pickle.dump(world, fd)
 	fd.close()
